@@ -4,7 +4,7 @@ import caffe
 import numpy as n
 import logging
 import argparse
-
+import faces_in_the_wild_dataset.download_data as dd
 def configure_logging(log_level=logging.INFO):
     # Rewrite log
     logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
@@ -32,17 +32,17 @@ def main():
         configure_logging()
 
     # load the network and get the images
-    net=ac.load_default_classifier(input_size=IMG_SIZE)
+    # net=ac.load_default_classifier(input_size=IMG_SIZE)
     logging.info('Loaded network')
-    image_dict=dict();
+    image_dict=dd.get_images();
 
     # Process the images
     for img_name in image_dict:
         # img=ac.image.load('face.jpg')
         logging.info('Colorizing',img_name)
         img=image_dict[img_name]
-        rgb,info=ac.colorize(img,classifier=net,return_info=True)
-        activation=get_fc7_activations(net)
+        # rgb,info=ac.colorize(img,classifier=net,return_info=True)
+        # activation=get_fc7_activations(net)
         if args.save:
             ac.image.save('color_'+str(img_name)+'.jpg',rgb)
 
