@@ -29,7 +29,7 @@ def download_and_unzip():
         curl_cmd = 'curl {} -O {}'.format(ZIP_FILE_URL, ZIP_FILE_PATH)
 
         # downloading zip file
-        if os.system(wget_cmd) != 0:
+        if os.system(curl_cmd) != 0:
             logger.info('Failure downloading zipped file')
             sys.exit(1)
             return
