@@ -1,6 +1,6 @@
 from __future__ import print_function
-import autocolorize as ac
-import caffe
+#import autocolorize as ac
+#import caffe
 import numpy as n
 import logging
 import argparse
