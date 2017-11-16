@@ -5,11 +5,20 @@ import numpy as n
 import logging
 import argparse
 import faces_in_the_wild_dataset.download_data as dd
+import numpy as np
+
+
 def configure_logging(log_level=logging.INFO):
+    '''
+    Method to configure the logger
+    '''
     # Rewrite log
     logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
 
 def parse_args():
+    '''
+    Method to get the parsed command line arguments
+    '''
     parser=argparse.ArgumentParser()
     parser.add_argument('-s','--save_img', 
                         help='True to store colorized images, else false',action='store_true')
@@ -18,6 +27,9 @@ def parse_args():
     return parser.parse_args();
 
 def get_fc7_activations(net):
+    '''
+    Method to get the activations of the fc7 layer
+    '''
     fc7=net.blobs['fc7']
     return fc7.data
 
