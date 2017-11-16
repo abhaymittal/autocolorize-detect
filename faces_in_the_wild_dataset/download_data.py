@@ -6,11 +6,13 @@ import scipy.io as sio
 from scipy.misc import imread
 from scipy.misc import imshow
 
+import config
 
-ZIP_FILE_URL = 'http://tamaraberg.com/faceDataset/faceData.tar.gz'
-ZIP_FILE_PATH = 'faceData.tar.gz'
-UNZIPPED_FILE_PATH = './'
-MAT_FILE = 'facedata/FacesInTheWild.mat'
+
+ZIP_FILE_URL = config.ZIP_FILE_URL
+ZIP_FILE_PATH = config.ZIP_FILE_PATH
+UNZIPPED_FILE_PATH = config.UNZIPPED_FILE_PATH
+MAT_FILE = config.MAT_FILE
 
 def download_and_unzip():
     """
@@ -35,7 +37,7 @@ def download_and_unzip():
             return
 
     logger.info('Unzipping the dataset')
-    unzip_cmd = 'tar xf {} -C {}'.format(ZIP_FILE_PATH, os.path.dirname(UNZIPPED_FILE_PATH))
+    unzip_cmd = 'tar xfv {} -C {}'.format(ZIP_FILE_PATH, os.path.dirname(UNZIPPED_FILE_PATH))
     if os.system(unzip_cmd) != 0:
         logger.info('Failure unzipping file')
         sys.exit(1)
