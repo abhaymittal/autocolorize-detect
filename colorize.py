@@ -1,11 +1,12 @@
 from __future__ import print_function
-#import autocolorize as ac
-#import caffe
+import autocolorize as ac
+import caffe
 import numpy as n
 import logging
 import argparse
 import faces_in_the_wild_dataset.download_data as dd
 import numpy as np
+import config
 
 
 def configure_logging(log_level=logging.INFO):
@@ -14,6 +15,7 @@ def configure_logging(log_level=logging.INFO):
     '''
     # Rewrite log
     logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
+    # logging.basicConfig(level=log_level)
 
 def parse_args():
     '''
@@ -44,19 +46,20 @@ def main():
         configure_logging()
 
     # load the network and get the images
-    # net=ac.load_default_classifier(input_size=IMG_SIZE)
+    net=ac.load_default_classifier(input_size=IMG_SIZE)
     logging.info('Loaded network')
     image_dict=dd.get_images();
 
     # Process the images
     for img_name in image_dict:
         # img=ac.image.load('face.jpg')
-        logging.info('Colorizing',img_name)
+        # logging.info('Colorizing '+str(img_name))
         img=image_dict[img_name]
-        # rgb,info=ac.colorize(img,classifier=net,return_info=True)
+        rgb,info=ac.colorize(img,classifier=net,return_info=True)
         # activation=get_fc7_activations(net)
-        if args.save:
-            ac.image.save('color_'+str(img_name)+'.jpg',rgb)
+        if args.save_img:
+            ac.image.save(config.SAVE_IMG_DIR+str(img_name)+'.jpg',img)
+            ac.image.save(config.SAVE_IMG_DIR+'color_'+str(img_name)+'.jpg',rgb)
 
 
 if __name__=='__main__':
