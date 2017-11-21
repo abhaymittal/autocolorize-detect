@@ -8,6 +8,9 @@ import faces_in_the_wild_dataset.download_data as dd
 import numpy as np
 import config
 
+ACT='act'
+SAMPLE_W='sample_width'
+IMG='img'
 
 def configure_logging(log_level=logging.INFO):
     '''
@@ -35,8 +38,107 @@ def get_fc7_activations(net):
     fc7=net.blobs['fc7']
     return fc7.data
 
+def get_fc7_max_activation(net):
+    '''
+    Method to get the max activation for each filter in the fc7 layer
+    '''
+    act=get_fc7_activations(net)
+    return np.max(act,(0,2,3))
+
+def initialize_dict(act_dict,n_samples,n_hid_units, act_width, act_height):
+    '''
+    Method to initialize the activation dictionaries
+    
+    ACT variable defines the key to a numpy array storing the 
+    activaton values. For every hidden unit 
+    n_samples*act_width*act_height activations are stored
+    
+    
+    Args:
+    -----
+    act_dict: The dictionary to initialize
+    n_samples: the number of samples to store in the dict. 
+         Must be < 255
+    n_hid_units: The number of hidden units
+    act_width, act_height: The width and height of the activation volume
+    '''
+    act_dict[ACT]=np.ndarray((n_hid_units,n_samples*act_width*act_height),dtype=np.float64)
+    act_dict[SAMPLE_W]=act_width*act_height
+    return
+
+def initialize_best_act_dict(act_dict,n_hid_units,n_top):
+    '''
+    Method to initialize the activation dictionary which stores the best activations
+    
+    ACT variable defines the key to a numpy array storing the 
+    activaton values. For every hidden unit  n_top activations
+    are stored
+    
+    IMG variable defines the key to a numpy array storing the images
+    corresponding to each activation index. Its size is same as ACT array
+    
+    Args:
+    -----
+    act_dict: The dictionary to initialize
+    n_samples: the number of samples to store in the dict. 
+         Must be < 255
+    n_hid_units: The number of hidden units
+    act_width, act_height: The width and height of the activation volume
+    '''
+    act_dict[ACT]=np.ndarray((n_hid_units,n_top),dtype=np.float64)
+    act_dict[IMG]=np.ndarray((n_hid_units,n_top),dtype=np.uint32)
+
+def append_to_dict(act_dict,current_act,idx):
+    '''
+    Method to apend activations to the activation dict
+
+    Args:
+    ----
+    act_dict: The activation dictionary
+    current_act:current activation volume (1, n_hidden, width, height)
+    idx: The idx of the image in batch, IMG variable is set to this value
+    '''
+    activations=act_dict[ACT]
+    n_col=current_act.shape[2]*current_act.shape[3]
+    start_idx=idx*n_col
+    end_idx=start_idx+n_col
+
+    # reshape the best act to 2d
+    current_act=current_act.reshape((current_act.shape[1],-1))
+
+    activations[:,start_idx:end_idx] = current_act
+    return
+
+def update_best_dict(best_dict,act_dict, batch_start_img_idx):
+    '''
+    Method to update the best dictionary using the current activation
+    dictionary.
+    Args:
+    best_dict: The best dict to update
+    act_dict: The activation dictionary
+    batch_start_img_idx: The image index of the starting image of the batch
+    '''
+    cur_act=act_dict[ACT]
+    best_act=best_dict[ACT]
+    x=np.argsort(cur_act,axis=1)
+    n_best=best_act.shape[1]
+    x=x[:,n_best]
+    width=act_dict[SAMPLE_W]
+    img_idx=(x/width)+batch_start_img_idx
+    act=np.ndarray((cur_act.shape[0],n_best),dtype=np.float64)
+    row_idx=np.arange(0,cur_act.shape[0]).reshape((cur_act.shape[0],1))
+    act=cur_act[row_idx,x]
+    c=np.concatenate((best_act,cur_act))
+    c_img=np.concatenate((best_dict[IMG],img_idx))
+    x=np.argsort(c,kind='mergesort',axis=1)
+    x=x[:,n_best]
+    best_act=c[row_idx,x]
+    best_dict[IMG]=c_img[row_idx,x]
+    return
+
+
 def main():
-    IMG_SIZE=128
+    IMG_SIZE=512
     args=parse_args()
 
     # configure logging
@@ -48,19 +150,40 @@ def main():
     # load the network and get the images
     net=ac.load_default_classifier(input_size=IMG_SIZE)
     logging.info('Loaded network')
-    image_dict=dd.get_images();
+    # image_dict=dd.get_images();
+
+    # run on an image here to get the height and width
+    act_dict=dict()
+    batch_size=100 
+    n_hid_units=4096
+    wid=IMG_SIZE/32 # 5 pooling layers before fc7 with kernel size 2
+    hgh=IMG_SIZE/32
+    initialize_dict(act_dict,batch_size,n_hid_units,wid,hgh)
+
+    # best dict
+    best_dict=dict()
+    n_top=20
+    initialize_dict(best_dict,n_top,n_hid_units,1,1)
 
     # Process the images
-    for img_name in image_dict:
-        # img=ac.image.load('face.jpg')
+    # for img_name in image_dict:
+    batch_start_img_idx=0
+    j=0
+    for img_name in ['coco'+str(i)+'.png' for i in range(1,11)]:
+        img=ac.image.load(img_name)
         # logging.info('Colorizing '+str(img_name))
-        img=image_dict[img_name]
+        # img=image_dict[img_name]
         rgb,info=ac.colorize(img,classifier=net,return_info=True)
-        # activation=get_fc7_activations(net)
+        activation=get_fc7_activations(net)
+        print(activation.shape)
+        append_to_dict(act_dict,activation,j)
+        # max_act=get_fc7_max_activation(net)
+        
+        j+=1
         if args.save_img:
             ac.image.save(config.SAVE_IMG_DIR+str(img_name)+'.jpg',img)
             ac.image.save(config.SAVE_IMG_DIR+'color_'+str(img_name)+'.jpg',rgb)
-
-
+    # sort activations
+    update_best_dict(best_dict,act_dict,batch_start_img_idx)
 if __name__=='__main__':
     main()
