@@ -5,3 +5,7 @@ DIR_NAME= 'faceData/'
 MAT_FILE = './faces_in_the_wild/faceData/FacesInTheWild.mat'
 SAVE_IMG_DIR='./img/'
 IMG_DICT_PICKLE_PATH='./dump/img_dict.p'
+
+CALTECH101_ZIP_URL = 'http://www.vision.caltech.edu/Image_Datasets/Caltech101/101_ObjectCategories.tar.gz'
+CALTECH101_ZIP_FILE_PATH = './caltech101/caltech101.tar.gz'
+CALTECH101_UNZIPPED_FILE_PATH = './caltech101/unzipped/'
