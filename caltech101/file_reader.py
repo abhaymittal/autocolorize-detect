@@ -23,7 +23,7 @@ class FileReader:
 
         self.map_category_to_files = {}
         self.list_files = []
-
+        self.categories = []
         self.processedSet = set()
         self.read_files()
 
@@ -80,6 +80,7 @@ class FileReader:
             match = re.findall(pat, dir)
             # catgory
             category = match[0]
+	    self.categories.append(category)
 
             filenames = [x[2] for x in os.walk(dir)][0]
             filenames = [dir + '/' + file for file in filenames]
@@ -90,7 +91,11 @@ class FileReader:
             self.list_files.extend(filenames)
 
 
-
+     def getCategories(self):
+        logger = logging.getLogger()
+        if self.categories == None or len(self.categories) == 0:
+            logger.error("categories for CALTECH101 not initialized")
+        return self.categories	
 
 
 
