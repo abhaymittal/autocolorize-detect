@@ -25,6 +25,7 @@ class FileReader:
         self.list_files = []
         self.categories = []
         self.processedSet = set()
+        self.cat_unread_idx={}
         self.read_files()
 
 
@@ -44,7 +45,7 @@ class FileReader:
              print "downloading"
              # donwload zip file
              # print('Download dataset');
-             logger.info('Downloading faces-in-the-wild dataset zip file')
+             logger.info('Downloading Caltech  dataset zip file')
              curl_cmd = 'curl {} -o {}'.format(self.ZIP_FILE_URL, self.ZIP_FILE_PATH)
 
              # downloading zip file
@@ -88,10 +89,11 @@ class FileReader:
             id += len(filenames)
 
             self.map_category_to_files[category] = (dir, filenames, file_ids)
+            self.cat_unread_idx[category]=0
             self.list_files.extend(filenames)
 
 
-     def getCategories(self):
+    def getCategories(self):
         logger = logging.getLogger()
         if self.categories == None or len(self.categories) == 0:
             logger.error("categories for CALTECH101 not initialized")
@@ -110,17 +112,37 @@ class FileReader:
         dir, filepath, file_ids = self.map_category_to_files[category]
         images = []
         images_ids = []
-        for id in file_ids:
-            if len(images) >= num_files:
-                break
-            if not id in self.processedSet:
-                imgpath = self.list_files[id]
-                img = imread(imgpath)
-                images.append(img)
-                images_ids.append(id)
-                self.processedSet.add(id)
+        # for id in file_ids:
+        #     if len(images) >= num_files:
+        #         break
+        #     if not id in self.processedSet:
+        #         imgpath = self.list_files[id]
+        #         img = imread(imgpath)
+        #         images.append(img)
+        #         images_ids.append(id)
+        #         self.processedSet.add(id)
+        
+        beg_idx=self.cat_unread_idx[category]
 
+        end_idx=np.minimum(beg_idx+num_files,len(file_ids))
+        self.cat_unread_idx[category]=end_idx
+        # will later replace images by a np array
+        for idx in np.arange(beg_idx,end_idx):
+            img_idx=file_ids[idx]
+            imgpath = self.list_files[img_idx]
+            img=imread(imgpath)
+            img=img.astype(np.float64)/255
+            images.append(img[...,:3].mean(-1))
+            images_ids.append(img_idx)
+            
         return (images, images_ids)
+
+    def has_more(self,category):
+        dirx, filepath, file_ids = self.map_category_to_files[category]
+        idx=self.cat_unread_idx[category]
+        if idx>=len(file_ids):
+            return False
+        return True
 
     def get_image_path_by_id(self, id):
         return self.list_files[id]
