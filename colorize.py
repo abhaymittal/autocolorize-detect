@@ -28,8 +28,8 @@ def configure_logging(log_level=logging.INFO):
     Method to configure the logger
     '''
     # Rewrite log
-    # logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
-    logging.basicConfig(level=log_level)
+    logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
+    # logging.basicConfig(level=log_level)
 
 def parse_args():
     '''
@@ -39,6 +39,8 @@ def parse_args():
     parser.add_argument('-s','--save_img', 
                         help='True to store colorized images, else false',action='store_true')
     parser.add_argument('-d','--debug',help='Flag to enable debugging',
+                        action='store_true')
+    parser.add_argument('-l','--load_best_cat_dict',help='load the previously saved dictionary after finishing category',
                         action='store_true')
     return parser.parse_args();
 
@@ -75,7 +77,6 @@ def initialize_dict(act_dict,n_samples,n_hid_units, act_width, act_height):
     '''
     act_dict[ACT]=np.ndarray((n_hid_units,n_samples*act_width*act_height),dtype=np.float64)
     act_dict[SAMPLE_W]=act_width*act_height
-    print(act_dict[SAMPLE_W])
     return
 
 def initialize_best_act_dict(act_dict,n_hid_units,n_top):
@@ -182,19 +183,29 @@ def main():
 
     # best dict
     best_dict=dict()
-    n_top=40
-    initialize_best_act_dict(best_dict,n_hid_units,n_top)
+    if(args.load_best_cat_dict):
+        n_top=40
+        initialize_best_act_dict(best_dict,n_hid_units,n_top)
+    else:
+        logging.info('Loading previously saved cat dict file')
+        with open(config.BEST_CAT_DICT_FILE,'rb') as f:
+            best_dict=p.load(f)
+        print(best_dict.keys())
+        print(best_dict[ACT])
+        print(best_dict[IMG])
+        
 
     cat=fr.getCategories()
-    print(cat)
-    for ct in ['cup']:
+    logging.info(cat)
+    for ct in cat[3:]:
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
         while fr.has_more(ct):
             imgs,idx=fr.getNextFiles(ct,batch_size)
             initialize_dict(act_dict,len(idx),n_hid_units,wid,hgh)
             j=0
             for img in imgs:
-                print("Run for img ",idx[j]," shape = ",img.shape)
+                logging.info("Run for img "+str(idx[j])+" shape = ")
+                logging.info(img.shape)
                 rgb,info=ac.colorize(img,classifier=net,return_info=True)
                 activation=get_fc7_activations(net)
                 # print("Append to dict")
@@ -213,33 +224,12 @@ def main():
             logging.info('Batch done, update best')
             update_best_dict(best_dict,act_dict,idx)
         logging.info('Move to next category')
-        with open('best_dict_cat.p','wb') as f:
+        with open(config.BEST_CAT_DICT_FILE,'wb') as f:
             p.dump(best_dict,f)
 
     logging.info('All images done')
     
     with open('best_dict.p','wb') as f:
         p.dump(best_dict,f)
-                
-    # Process the images
-    # for img_name in image_dict:
-    # batch_start_img_idx=0
-    # j=0
-    # for img_name in ['coco'+str(i)+'.png' for i in range(1,11)]:
-    #     img=ac.image.load(img_name)
-    #     # logging.info('Colorizing '+str(img_name))
-    #     # img=image_dict[img_name]
-    #     rgb,info=ac.colorize(img,classifier=net,return_info=True)
-    #     activation=get_fc7_activations(net)
-    #     print(activation.shape)
-    #     append_to_dict(act_dict,activation,j)
-    #     # max_act=get_fc7_max_activation(net)
-        
-    #     j+=1
-    #     if args.save_img:
-    #         ac.image.save(config.SAVE_IMG_DIR+str(img_name)+'.jpg',img)
-    #         ac.image.save(config.SAVE_IMG_DIR+'color_'+str(img_name)+'.jpg',rgb)
-    # # sort activations
-    # update_best_dict(best_dict,act_dict,batch_start_img_idx)
 if __name__=='__main__':
     main()

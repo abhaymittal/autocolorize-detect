@@ -132,7 +132,9 @@ class FileReader:
             imgpath = self.list_files[img_idx]
             img=imread(imgpath)
             img=img.astype(np.float64)/255
-            images.append(img[...,:3].mean(-1))
+            if(len(img.shape)==3):
+                img=img[...,:3].mean(-1)
+            images.append(img)
             images_ids.append(img_idx)
             
         return (images, images_ids)
