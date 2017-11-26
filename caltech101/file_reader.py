@@ -152,6 +152,10 @@ class FileReader:
         img = imread(imgpath)
         return img
 
+    def get_category_size(self,category):
+        _, _, file_ids = self.map_category_to_files[category]
+        return len(file_ids)
+        
     def isProcessed(self, id):
         return id in self.processedSet
 

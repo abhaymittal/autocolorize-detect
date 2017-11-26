@@ -1,12 +1,23 @@
 from __future__ import print_function
-import autocolorize as ac
+import matplotlib
+matplotlib.use('Agg')
+import os
+os.environ["GLOG_minloglevel"] = "2"
 import caffe
+import autocolorize as ac
 import numpy as n
 import logging
 import argparse
 import faces_in_the_wild_dataset.download_data as dd
 import numpy as np
 import config
+from caltech101.file_reader import FileReader
+import matplotlib.pyplot as plt
+
+try:
+    import cPickle as p
+except:
+    import Pickle as p
 
 ACT='act'
 SAMPLE_W='sample_width'
@@ -17,8 +28,8 @@ def configure_logging(log_level=logging.INFO):
     Method to configure the logger
     '''
     # Rewrite log
-    logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
-    # logging.basicConfig(level=log_level)
+    # logging.basicConfig(filename='ac.log',filemode='w',level=log_level)
+    logging.basicConfig(level=log_level)
 
 def parse_args():
     '''
@@ -64,6 +75,7 @@ def initialize_dict(act_dict,n_samples,n_hid_units, act_width, act_height):
     '''
     act_dict[ACT]=np.ndarray((n_hid_units,n_samples*act_width*act_height),dtype=np.float64)
     act_dict[SAMPLE_W]=act_width*act_height
+    print(act_dict[SAMPLE_W])
     return
 
 def initialize_best_act_dict(act_dict,n_hid_units,n_top):
@@ -85,8 +97,8 @@ def initialize_best_act_dict(act_dict,n_hid_units,n_top):
     n_hid_units: The number of hidden units
     act_width, act_height: The width and height of the activation volume
     '''
-    act_dict[ACT]=np.ndarray((n_hid_units,n_top),dtype=np.float64)
-    act_dict[IMG]=np.ndarray((n_hid_units,n_top),dtype=np.uint32)
+    act_dict[ACT]=np.zeros((n_hid_units,n_top),dtype=np.float64)
+    act_dict[IMG]=np.zeros((n_hid_units,n_top),dtype=np.uint32)
 
 def append_to_dict(act_dict,current_act,idx):
     '''
@@ -109,7 +121,7 @@ def append_to_dict(act_dict,current_act,idx):
     activations[:,start_idx:end_idx] = current_act
     return
 
-def update_best_dict(best_dict,act_dict, batch_start_img_idx):
+def update_best_dict(best_dict,act_dict, img_idx):
     '''
     Method to update the best dictionary using the current activation
     dictionary.
@@ -120,25 +132,33 @@ def update_best_dict(best_dict,act_dict, batch_start_img_idx):
     '''
     cur_act=act_dict[ACT]
     best_act=best_dict[ACT]
-    x=np.argsort(cur_act,axis=1)
+    x=np.argsort(-cur_act,axis=1)
+    # print(x)
     n_best=best_act.shape[1]
-    x=x[:,n_best]
+    x=x[:,:n_best]
     width=act_dict[SAMPLE_W]
-    img_idx=(x/width)+batch_start_img_idx
+    img_idx=np.array(img_idx)
+    idx=img_idx[x/width]
+
     act=np.ndarray((cur_act.shape[0],n_best),dtype=np.float64)
     row_idx=np.arange(0,cur_act.shape[0]).reshape((cur_act.shape[0],1))
     act=cur_act[row_idx,x]
-    c=np.concatenate((best_act,cur_act))
-    c_img=np.concatenate((best_dict[IMG],img_idx))
-    x=np.argsort(c,kind='mergesort',axis=1)
-    x=x[:,n_best]
+    
+    c=np.concatenate((best_act,act),axis=1)
+    c_img=np.concatenate((best_dict[IMG],idx),axis=1)
+    # print(c_img.shape, c.shape)
+    x=np.argsort(-c,kind='mergesort',axis=1)
+    x=x[:,:n_best]
     best_act=c[row_idx,x]
     best_dict[IMG]=c_img[row_idx,x]
+    best_dict[ACT]=best_act
+    # print (best_act)
+    # print(best_dict[IMG])
     return
 
 
 def main():
-    IMG_SIZE=512
+    IMG_SIZE=576
     args=parse_args()
 
     # configure logging
@@ -151,39 +171,75 @@ def main():
     net=ac.load_default_classifier(input_size=IMG_SIZE)
     logging.info('Loaded network')
     # image_dict=dd.get_images();
-
+    fr=FileReader()
     # run on an image here to get the height and width
     act_dict=dict()
-    batch_size=100 
+    batch_size=100
     n_hid_units=4096
     wid=IMG_SIZE/32 # 5 pooling layers before fc7 with kernel size 2
     hgh=IMG_SIZE/32
-    initialize_dict(act_dict,batch_size,n_hid_units,wid,hgh)
+    # initialize_dict(act_dict,batch_size,n_hid_units,wid,hgh)
 
     # best dict
     best_dict=dict()
-    n_top=20
-    initialize_dict(best_dict,n_top,n_hid_units,1,1)
+    n_top=40
+    initialize_best_act_dict(best_dict,n_hid_units,n_top)
 
+    cat=fr.getCategories()
+    print(cat)
+    for ct in ['cup']:
+        logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
+        while fr.has_more(ct):
+            imgs,idx=fr.getNextFiles(ct,batch_size)
+            initialize_dict(act_dict,len(idx),n_hid_units,wid,hgh)
+            j=0
+            for img in imgs:
+                print("Run for img ",idx[j]," shape = ",img.shape)
+                rgb,info=ac.colorize(img,classifier=net,return_info=True)
+                activation=get_fc7_activations(net)
+                # print("Append to dict")
+                append_to_dict(act_dict,activation,j)
+                # print("Save")
+                if args.save_img:
+                    plt.subplot(1,2,1)
+                    plt.imshow(np.stack((img,img,img),-1))
+                    plt.subplot(1,2,2)
+                    plt.imshow(rgb)
+                    plt.savefig(config.SAVE_IMG_DIR+str(idx[j])+'.png')
+                    # ac.image.save(config.SAVE_IMG_DIR+str(idx[j])+'.jpg',img)
+                    # ac.image.save(config.SAVE_IMG_DIR+'color_'+str(idx[j])+'.jpg',rgb)
+                # print("Saved")
+                j+=1
+            logging.info('Batch done, update best')
+            update_best_dict(best_dict,act_dict,idx)
+        logging.info('Move to next category')
+        with open('best_dict_cat.p','wb') as f:
+            p.dump(best_dict,f)
+
+    logging.info('All images done')
+    
+    with open('best_dict.p','wb') as f:
+        p.dump(best_dict,f)
+                
     # Process the images
     # for img_name in image_dict:
-    batch_start_img_idx=0
-    j=0
-    for img_name in ['coco'+str(i)+'.png' for i in range(1,11)]:
-        img=ac.image.load(img_name)
-        # logging.info('Colorizing '+str(img_name))
-        # img=image_dict[img_name]
-        rgb,info=ac.colorize(img,classifier=net,return_info=True)
-        activation=get_fc7_activations(net)
-        print(activation.shape)
-        append_to_dict(act_dict,activation,j)
-        # max_act=get_fc7_max_activation(net)
+    # batch_start_img_idx=0
+    # j=0
+    # for img_name in ['coco'+str(i)+'.png' for i in range(1,11)]:
+    #     img=ac.image.load(img_name)
+    #     # logging.info('Colorizing '+str(img_name))
+    #     # img=image_dict[img_name]
+    #     rgb,info=ac.colorize(img,classifier=net,return_info=True)
+    #     activation=get_fc7_activations(net)
+    #     print(activation.shape)
+    #     append_to_dict(act_dict,activation,j)
+    #     # max_act=get_fc7_max_activation(net)
         
-        j+=1
-        if args.save_img:
-            ac.image.save(config.SAVE_IMG_DIR+str(img_name)+'.jpg',img)
-            ac.image.save(config.SAVE_IMG_DIR+'color_'+str(img_name)+'.jpg',rgb)
-    # sort activations
-    update_best_dict(best_dict,act_dict,batch_start_img_idx)
+    #     j+=1
+    #     if args.save_img:
+    #         ac.image.save(config.SAVE_IMG_DIR+str(img_name)+'.jpg',img)
+    #         ac.image.save(config.SAVE_IMG_DIR+'color_'+str(img_name)+'.jpg',rgb)
+    # # sort activations
+    # update_best_dict(best_dict,act_dict,batch_start_img_idx)
 if __name__=='__main__':
     main()
