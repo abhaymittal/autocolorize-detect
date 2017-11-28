@@ -161,6 +161,7 @@ def update_best_dict(best_dict,act_dict, img_idx):
 def main():
     IMG_SIZE=576
     args=parse_args()
+    print(args)
 
     # configure logging
     if args.debug:
@@ -175,7 +176,7 @@ def main():
     fr=FileReader()
     # run on an image here to get the height and width
     act_dict=dict()
-    batch_size=100
+    batch_size=50
     n_hid_units=4096
     wid=IMG_SIZE/32 # 5 pooling layers before fc7 with kernel size 2
     hgh=IMG_SIZE/32
@@ -183,7 +184,8 @@ def main():
 
     # best dict
     best_dict=dict()
-    if(args.load_best_cat_dict):
+    if(not args.load_best_cat_dict):
+        logging.info('Initializing best dictionary from scratch')
         n_top=40
         initialize_best_act_dict(best_dict,n_hid_units,n_top)
     else:
@@ -197,9 +199,11 @@ def main():
 
     cat=fr.getCategories()
     logging.info(cat)
-    for ct in cat[3:]:
+    limit=1
+    for ct in cat[-19:]:
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
-        while fr.has_more(ct):
+        l=0
+        while fr.has_more(ct) and l<limit:
             imgs,idx=fr.getNextFiles(ct,batch_size)
             initialize_dict(act_dict,len(idx),n_hid_units,wid,hgh)
             j=0
@@ -223,6 +227,7 @@ def main():
                 j+=1
             logging.info('Batch done, update best')
             update_best_dict(best_dict,act_dict,idx)
+            l+=1
         logging.info('Move to next category')
         with open(config.BEST_CAT_DICT_FILE,'wb') as f:
             p.dump(best_dict,f)
