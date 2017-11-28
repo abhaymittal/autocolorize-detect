@@ -22,6 +22,8 @@ except:
 ACT='act'
 SAMPLE_W='sample_width'
 IMG='img'
+ROW_IDX='row_idx'
+COL_IDX='col_idx'
 
 def configure_logging(log_level=logging.INFO):
     '''
@@ -101,6 +103,9 @@ def initialize_best_act_dict(act_dict,n_hid_units,n_top):
     act_dict[ACT]=np.zeros((n_hid_units,n_top),dtype=np.float64)
     act_dict[IMG]=np.zeros((n_hid_units,n_top),dtype=np.uint32)
 
+    act_dict[ROW_IDX]=np.zeros((n_hid_units,n_top),dtype=np.uint8)
+    act_dict[COL_IDX]=np.zeros((n_hid_units,n_top),dtype=np.uint8)
+
 def append_to_dict(act_dict,current_act,idx):
     '''
     Method to apend activations to the activation dict
@@ -122,7 +127,7 @@ def append_to_dict(act_dict,current_act,idx):
     activations[:,start_idx:end_idx] = current_act
     return
 
-def update_best_dict(best_dict,act_dict, img_idx):
+def update_best_dict(best_dict,act_dict, img_idx, act_width):
     '''
     Method to update the best dictionary using the current activation
     dictionary.
@@ -140,6 +145,9 @@ def update_best_dict(best_dict,act_dict, img_idx):
     width=act_dict[SAMPLE_W]
     img_idx=np.array(img_idx)
     idx=img_idx[x/width]
+    flat_idx=x%width
+    act_row_idx=flat_idx/act_width
+    act_col_idx=flat_idx%act_width
 
     act=np.ndarray((cur_act.shape[0],n_best),dtype=np.float64)
     row_idx=np.arange(0,cur_act.shape[0]).reshape((cur_act.shape[0],1))
@@ -147,12 +155,18 @@ def update_best_dict(best_dict,act_dict, img_idx):
     
     c=np.concatenate((best_act,act),axis=1)
     c_img=np.concatenate((best_dict[IMG],idx),axis=1)
+    c_act_row_idx=np.concatenate((best_dict[ROW_IDX],act_row_idx),axis=1)
+    c_act_col_idx=np.concatenate((best_dict[COL_IDX],act_col_idx),axis=1)
+
+
     # print(c_img.shape, c.shape)
     x=np.argsort(-c,kind='mergesort',axis=1)
     x=x[:,:n_best]
     best_act=c[row_idx,x]
     best_dict[IMG]=c_img[row_idx,x]
     best_dict[ACT]=best_act
+    best_dict[ROW_IDX]=c_act_row_idx[row_idx,x]
+    best_dict[COL_IDX]=c_act_col_idx[row_idx,x]
     # print (best_act)
     # print(best_dict[IMG])
     return
@@ -200,7 +214,7 @@ def main():
     cat=fr.getCategories()
     logging.info(cat)
     limit=1
-    for ct in cat[-19:]:
+    for ct in cat[2:]:
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
         l=0
         while fr.has_more(ct) and l<limit:
@@ -226,7 +240,7 @@ def main():
                 # print("Saved")
                 j+=1
             logging.info('Batch done, update best')
-            update_best_dict(best_dict,act_dict,idx)
+            update_best_dict(best_dict,act_dict,idx,wid)
             l+=1
         logging.info('Move to next category')
         with open(config.BEST_CAT_DICT_FILE,'wb') as f:
