@@ -157,6 +157,10 @@ class FileReader:
     def get_category_size(self,category):
         _, _, file_ids = self.map_category_to_files[category]
         return len(file_ids)
+
+    def get_cat_id_range(self,category):
+        _, _, file_ids = self.map_category_to_files[category]
+        return file_ids[0], file_ids[-1]
         
     def isProcessed(self, id):
         return id in self.processedSet
