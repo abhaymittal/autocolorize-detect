@@ -100,6 +100,7 @@ def initialize_best_act_dict(act_dict,n_hid_units,n_top):
     n_hid_units: The number of hidden units
     act_width, act_height: The width and height of the activation volume
     '''
+    logging.info('Initializing best act dictionary for '+str(n_top)+' activations')
     act_dict[ACT]=np.zeros((n_hid_units,n_top),dtype=np.float64)
     act_dict[IMG]=np.zeros((n_hid_units,n_top),dtype=np.uint32)
 
@@ -190,7 +191,7 @@ def main():
     fr=FileReader()
     # run on an image here to get the height and width
     act_dict=dict()
-    batch_size=50
+    batch_size=100
     n_hid_units=4096
     wid=IMG_SIZE/32 # 5 pooling layers before fc7 with kernel size 2
     hgh=IMG_SIZE/32
@@ -200,7 +201,7 @@ def main():
     best_dict=dict()
     if(not args.load_best_cat_dict):
         logging.info('Initializing best dictionary from scratch')
-        n_top=40
+        n_top=50
         initialize_best_act_dict(best_dict,n_hid_units,n_top)
     else:
         logging.info('Loading previously saved cat dict file')
@@ -213,8 +214,8 @@ def main():
 
     cat=fr.getCategories()
     logging.info(cat)
-    limit=1
-    for ct in cat[2:]:
+    limit=1000
+    for ct in cat[1:3]:
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
         l=0
         while fr.has_more(ct) and l<limit:
@@ -248,6 +249,7 @@ def main():
 
     logging.info('All images done')
     
+    print(best_dict)
     with open('best_dict.p','wb') as f:
         p.dump(best_dict,f)
 if __name__=='__main__':
