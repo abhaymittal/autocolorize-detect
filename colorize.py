@@ -5,7 +5,6 @@ import os
 os.environ["GLOG_minloglevel"] = "2"
 import caffe
 import autocolorize as ac
-import numpy as n
 import logging
 import argparse
 import faces_in_the_wild_dataset.download_data as dd
@@ -142,7 +141,8 @@ def update_best_dict(best_dict,act_dict, img_idx, act_width):
     x=np.argsort(-cur_act,axis=1)
     # print(x)
     n_best=best_act.shape[1]
-    x=x[:,:n_best]
+    if x.shape[1]>n_best:
+        x=x[:,:n_best]
     width=act_dict[SAMPLE_W]
     img_idx=np.array(img_idx)
     idx=img_idx[x/width]
@@ -214,8 +214,8 @@ def main():
 
     cat=fr.getCategories()
     logging.info(cat)
-    limit=1000
-    for ct in cat[1:3]:
+    limit=1
+    for ct in cat[3:]:
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
         l=0
         while fr.has_more(ct) and l<limit:
@@ -249,7 +249,6 @@ def main():
 
     logging.info('All images done')
     
-    print(best_dict)
     with open('best_dict.p','wb') as f:
         p.dump(best_dict,f)
 if __name__=='__main__':

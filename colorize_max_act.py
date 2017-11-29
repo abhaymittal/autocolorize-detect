@@ -145,7 +145,8 @@ def update_best_dict(best_dict,act_dict, img_idx):
     x=np.argsort(-cur_act,axis=1)
     # print(x)
     n_best=best_act.shape[1]
-    x=x[:,:n_best]
+    if x.shape[1]>n_best:
+        x=x[:,:n_best]
     img_idx=np.array(img_idx)
     idx=img_idx[x]
 
@@ -192,7 +193,7 @@ def main():
     fr=FileReader()
     # run on an image here to get the height and width
     act_dict=dict()
-    batch_size=100
+    batch_size=200
     n_hid_units=4096
     wid=IMG_SIZE/32 # 5 pooling layers before fc7 with kernel size 2
     hgh=IMG_SIZE/32
@@ -202,7 +203,7 @@ def main():
     best_dict=dict()
     if(not args.load_best_cat_dict):
         logging.info('Initializing best dictionary from scratch')
-        n_top=50
+        n_top=1000
         initialize_best_act_dict(best_dict,n_hid_units,n_top)
     else:
         logging.info('Loading previously saved cat dict file')
@@ -216,9 +217,10 @@ def main():
     cat=fr.getCategories()
     logging.info(cat)
     limit=1000
+    print_every=100
     for ct in cat[2:]:
-        if ct==cat[3]: # After faces, do only max 100 images of others
-            limit=1
+        # if ct==cat[3]: # After faces, do only max 100 images of others
+        #     limit=1
         logging.info('Category: '+ct+" Size = "+str(fr.get_category_size(ct)))
         l=0
         while fr.has_more(ct) and l<limit:
@@ -226,8 +228,8 @@ def main():
             initialize_dict(act_dict,len(idx),n_hid_units)
             j=0
             for img in imgs:
-                logging.info("Run for img "+str(idx[j])+" shape = ")
-                logging.info(img.shape)
+                if (j%print_every)==0:
+                    logging.info("Run for img "+str(idx[j]))
                 rgb,info=ac.colorize(img,classifier=net,return_info=True)
                 activation=get_fc7_activations(net)
                 # print("Append to dict")
@@ -243,7 +245,8 @@ def main():
                     # ac.image.save(config.SAVE_IMG_DIR+'color_'+str(idx[j])+'.jpg',rgb)
                 # print("Saved")
                 j+=1
-            logging.info('Batch done, update best')
+            # logging.info('Batch done, update best')
+            logging.info('Batch Processed img '+str(idx[0])+' to '+str(idx[-1]))
             update_best_dict(best_dict,act_dict,idx)
             l+=1
         logging.info('Move to next category')
