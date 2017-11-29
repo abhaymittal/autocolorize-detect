@@ -10,3 +10,6 @@ CALTECH101_ZIP_URL = 'http://www.vision.caltech.edu/Image_Datasets/Caltech101/10
 CALTECH101_ZIP_FILE_PATH = './caltech101/caltech101.tar.gz'
 CALTECH101_UNZIPPED_FILE_PATH = './caltech101/unzipped/'
 BEST_CAT_DICT_FILE='./dump/best_dict_cat.p'
+BEST_DICT_FILE='dump/best_dict.p '
+BEST_MAX_CAT_DICT_FILE='./dump_max/best_max_dict_cat.p'
+BEST_MAX_DICT_FILE='./dump_max/best_max_dict.p'
