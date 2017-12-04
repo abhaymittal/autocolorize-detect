@@ -62,8 +62,30 @@ def main():
     best_dict=dict()
     with open(dict_file,'rb') as f:
         best_dict=p.load(f)
+    
+
+    fr=None
+    with open(fr_file,'rb') as f:
+        fr=p.load(f)
+
         
-    fr=fread.FileReader()
+    print(fr.getCategories())
+
+    catgs=fr.getCategories()
+    # The following are the categories
+    # ['BACKGROUND_Google', 'Faces', 'Faces_easy', 'Leopards', 'Motorbikes', 'accordion', 'airplanes', 'anchor', 'ant', 'barrel', 'bass', 'beaver', 'binocular', 'bonsai', 'brain', 'brontosaurus', 'buddha', 'butterfly', 'camera', 'cannon', 'car_side', 'ceiling_fan', 'cellphone', 'chair', 'chandelier', 'cougar_face', 'crab', 'crayfish', 'crocodile', 'crocodile_head', 'cup', 'dalmatian', 'dollar_bill', 'dolphin', 'dragonfly', 'electric_guitar', 'elephant', 'emu', 'euphonium', 'ewer', 'ferry', 'flamingo', 'flamingo_head', 'garfield', 'gerenuk', 'gramophone', 'grand_piano', 'hawksbill', 'headphone', 'hedgehog', 'helicopter', 'ibis', 'inline_skate', 'joshua_tree', 'kangaroo', 'ketch', 'lamp', 'laptop', 'llama', 'lobster', 'lotus', 'mandolin', 'mayfly', 'menorah', 'metronome', 'minaret', 'nautilus', 'octopus', 'okapi', 'pagoda', 'panda', 'pigeon', 'pizza', 'platypus', 'pyramid', 'revolver', 'rhino', 'rooster', 'saxophone', 'schooner', 'scissors', 'scorpion', 'sea_horse', 'snoopy', 'soccer_ball', 'stapler', 'starfish', 'stegosaurus', 'stop_sign', 'strawberry', 'sunflower', 'tick', 'trilobite', 'umbrella', 'watch', 'water_lilly', 'wheelchair', 'wild_cat', 'windsor_chair', 'wrench', 'yin_yang', 'cougar_body']
+    
+    cat_count_matrix=get_act_category_count(best_dict,fr)
+
+    for idx,cat in enumerate(catgs):
+        plt.figure()
+        freq=cat_count_matrix[:,idx]
+        x_axis=range(0,len(freq))
+        plt.bar(x_axis,freq)
+        size=fr.get_category_size(cat)
+        plt.title(cat+' '+str(size))
+        plt.savefig('fig/'+cat+'.png')
+
 
 if __name__=='__main__':
     main()
