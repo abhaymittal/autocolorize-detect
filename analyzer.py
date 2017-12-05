@@ -1,4 +1,7 @@
 from __future__ import print_function
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 import os
 try:
     import cPickle as p
@@ -56,9 +59,79 @@ def get_act_category_count(best_dict,fr):
         cat_counts[row_idx,cat_idx[:,i]]+=1
     return cat_counts
 
+def get_img_patch(img, x, y):
+    '''
+    
+    '''
+
+    # receptive field arithmetic : https://medium.com/@nikasa1889/a-guide-to-receptive-field-arithmetic-for-convolutional-neural-networks-e0f514068807
+    recept_size=404
+    jump=32
+    start=0.5
+    
+    
+    center_x, center_y=start+x*jump,start+y*jump
+    beg_x,end_x=center_x-(recept_size/2),center_x+(recept_size/2)
+    beg_y,end_y=center_y-(recept_size/2),center_y+(recept_size/2)
+    beg_x = 0 if beg_x<0 else beg_x
+    beg_y = 0 if beg_y<0 else beg_y
+    end_x = img.size[1] if end_x+1>img.size[1] else end_x+1
+    end_y = img.size[1] if end_y+1>img.size[1] else end_y+1
+    return img[beg_x:end_x,beg_y:end_y]
+
+
+
+# resize_by_factor and center_crop have been copied from  autocolorize to prevent the loading of caffe for this
+# which needs a couple of seconds and installation of caffe is also required then
+def resize_by_factor(img, factor):
+    if factor != 1:
+        return rescale(img, factor, mode='constant', cval=0)
+    else:
+        return img
+
+def center_crop(img, size, value=0.0):
+    """Center crop with padding (using `value`) if necessary"""
+    new_img = np.full(size + img.shape[2:], value, dtype=img.dtype)
+
+    dest = [0, 0]
+    source = [0, 0]
+    ss = [0, 0]
+    for i in range(2):
+        if img.shape[i] < size[i]:
+            diff = size[i] - img.shape[i]
+            dest[i] = diff // 2
+            source[i] = 0
+            ss[i] = img.shape[i]
+        else:
+            diff = img.shape[i] - size[i]
+            source[i] = diff // 2
+            ss[i] = size[i]
+
+    new_img[dest[0]:dest[0]+ss[0], dest[1]:dest[1]+ss[1]] = \
+            img[source[0]:source[0]+ss[0], source[1]:source[1]+ss[1]]
+
+    return new_img
+
+
+
+def get_padded_image(grayscale,input_size):
+    min_side=input_size//2
+    max_side=input_size-12
+    shorter_side = np.min(grayscale.shape[:2])
+    longer_side = np.max(grayscale.shape[:2])
+    scale = min(min_side / shorter_side, 1)
+    if longer_side * scale >= max_side:
+        scale = max_side / longer_side
+    if scale != 1:
+        grayscale = resize_by_factor(grayscale, scale)
+
+    grayscale = center_crop(grayscale, (size, size))
+    return grayscale
+
 
 def main():
     dict_file='dump/best_dict_cat.p'
+    fr_file='file_reader.p'
     best_dict=dict()
     with open(dict_file,'rb') as f:
         best_dict=p.load(f)
@@ -78,13 +151,14 @@ def main():
     cat_count_matrix=get_act_category_count(best_dict,fr)
 
     for idx,cat in enumerate(catgs):
-        plt.figure()
+        fig=plt.figure()
         freq=cat_count_matrix[:,idx]
         x_axis=range(0,len(freq))
         plt.bar(x_axis,freq)
         size=fr.get_category_size(cat)
         plt.title(cat+' '+str(size))
         plt.savefig('fig/'+cat+'.png')
+        plt.close()
 
 
 if __name__=='__main__':
