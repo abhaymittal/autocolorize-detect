@@ -12,7 +12,8 @@ except:
 import logging
 import numpy as np
 import caltech101.file_reader as fread
-
+from scipy.misc import imsave
+from skimage.transform import rescale
 
 ACT='act'
 SAMPLE_W='sample_width'
@@ -59,7 +60,7 @@ def get_act_category_count(best_dict,fr):
         cat_counts[row_idx,cat_idx[:,i]]+=1
     return cat_counts
 
-def get_img_patch(img, x, y):
+def get_img_patch(img, row, col):
     '''
     
     '''
@@ -70,14 +71,19 @@ def get_img_patch(img, x, y):
     start=0.5
     
     
-    center_x, center_y=start+x*jump,start+y*jump
+    center_x, center_y=start+col*jump,start+row*jump
     beg_x,end_x=center_x-(recept_size/2),center_x+(recept_size/2)
     beg_y,end_y=center_y-(recept_size/2),center_y+(recept_size/2)
+    beg_x=int(np.floor(beg_x))
+    beg_y=int(np.floor(beg_y))
+    end_x=int(np.ceil(end_x))
+    end_y=int(np.ceil(end_y))
     beg_x = 0 if beg_x<0 else beg_x
     beg_y = 0 if beg_y<0 else beg_y
-    end_x = img.size[1] if end_x+1>img.size[1] else end_x+1
-    end_y = img.size[1] if end_y+1>img.size[1] else end_y+1
-    return img[beg_x:end_x,beg_y:end_y]
+    end_x = img.shape[1] if end_x+1>img.shape[1] else end_x+1
+    end_y = img.shape[0] if end_y+1>img.shape[0] else end_y+1
+    
+    return img[beg_y:end_y,beg_x:end_x]
 
 
 
@@ -115,7 +121,7 @@ def center_crop(img, size, value=0.0):
 
 
 def get_padded_image(grayscale,input_size):
-    min_side=input_size//2
+    min_side=float(input_size//2)
     max_side=input_size-12
     shorter_side = np.min(grayscale.shape[:2])
     longer_side = np.max(grayscale.shape[:2])
@@ -125,25 +131,11 @@ def get_padded_image(grayscale,input_size):
     if scale != 1:
         grayscale = resize_by_factor(grayscale, scale)
 
-    grayscale = center_crop(grayscale, (size, size))
+    grayscale = center_crop(grayscale, (input_size, input_size))
     return grayscale
 
-
-def main():
-    dict_file='dump/best_dict_cat.p'
-    fr_file='file_reader.p'
-    best_dict=dict()
-    with open(dict_file,'rb') as f:
-        best_dict=p.load(f)
-    
-
-    fr=None
-    with open(fr_file,'rb') as f:
-        fr=p.load(f)
-
-        
+def plot_category_histograms(best_dict,fr):
     print(fr.getCategories())
-
     catgs=fr.getCategories()
     # The following are the categories
     # ['BACKGROUND_Google', 'Faces', 'Faces_easy', 'Leopards', 'Motorbikes', 'accordion', 'airplanes', 'anchor', 'ant', 'barrel', 'bass', 'beaver', 'binocular', 'bonsai', 'brain', 'brontosaurus', 'buddha', 'butterfly', 'camera', 'cannon', 'car_side', 'ceiling_fan', 'cellphone', 'chair', 'chandelier', 'cougar_face', 'crab', 'crayfish', 'crocodile', 'crocodile_head', 'cup', 'dalmatian', 'dollar_bill', 'dolphin', 'dragonfly', 'electric_guitar', 'elephant', 'emu', 'euphonium', 'ewer', 'ferry', 'flamingo', 'flamingo_head', 'garfield', 'gerenuk', 'gramophone', 'grand_piano', 'hawksbill', 'headphone', 'hedgehog', 'helicopter', 'ibis', 'inline_skate', 'joshua_tree', 'kangaroo', 'ketch', 'lamp', 'laptop', 'llama', 'lobster', 'lotus', 'mandolin', 'mayfly', 'menorah', 'metronome', 'minaret', 'nautilus', 'octopus', 'okapi', 'pagoda', 'panda', 'pigeon', 'pizza', 'platypus', 'pyramid', 'revolver', 'rhino', 'rooster', 'saxophone', 'schooner', 'scissors', 'scorpion', 'sea_horse', 'snoopy', 'soccer_ball', 'stapler', 'starfish', 'stegosaurus', 'stop_sign', 'strawberry', 'sunflower', 'tick', 'trilobite', 'umbrella', 'watch', 'water_lilly', 'wheelchair', 'wild_cat', 'windsor_chair', 'wrench', 'yin_yang', 'cougar_body']
@@ -160,6 +152,35 @@ def main():
         plt.savefig('fig/'+cat+'.png')
         plt.close()
 
+def generate_patches_neuron(fr,best_dict,neuron_idx, input_size=576, n_imgs=None):
+    if n_imgs is None:
+        n_imgs=best_dict[IMG].shape[1]
+    img_ids=best_dict[IMG][neuron_idx,:n_imgs]
+    rows=best_dict[ROW_IDX][neuron_idx,:n_imgs]
+    cols=best_dict[COL_IDX][neuron_idx,:n_imgs]
+    for i,idx in enumerate(img_ids):
+        print('Processed image idx: ',idx)
+        img=fr.get_image_by_id(idx)
+        img=get_padded_image(img,input_size)
+        patch=get_img_patch(img, rows[i], cols[i])
+        patch_name='patch/'+str(idx)+' '+str(rows[i])+' '+str(cols[i])+'.jpg'
+        imsave(patch_name,patch)
+    return
+
+
+def main():
+    dict_file='dump/best_max_dict.p'
+    fr_file='dump/file_reader.p'
+    best_dict=dict()
+    with open(dict_file,'rb') as f:
+        best_dict=p.load(f)
+    fr=None
+    with open(fr_file,'rb') as f:
+        fr=p.load(f)
+    # plot_category_histograms(best_dict,fr)
+    print('Generating patches')
+    generate_patches_neuron(fr,best_dict,10,n_imgs=10)
+    
 
 if __name__=='__main__':
     main()
