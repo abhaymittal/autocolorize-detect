@@ -141,10 +141,11 @@ def plot_category_histograms(best_dict,fr):
     # ['BACKGROUND_Google', 'Faces', 'Faces_easy', 'Leopards', 'Motorbikes', 'accordion', 'airplanes', 'anchor', 'ant', 'barrel', 'bass', 'beaver', 'binocular', 'bonsai', 'brain', 'brontosaurus', 'buddha', 'butterfly', 'camera', 'cannon', 'car_side', 'ceiling_fan', 'cellphone', 'chair', 'chandelier', 'cougar_face', 'crab', 'crayfish', 'crocodile', 'crocodile_head', 'cup', 'dalmatian', 'dollar_bill', 'dolphin', 'dragonfly', 'electric_guitar', 'elephant', 'emu', 'euphonium', 'ewer', 'ferry', 'flamingo', 'flamingo_head', 'garfield', 'gerenuk', 'gramophone', 'grand_piano', 'hawksbill', 'headphone', 'hedgehog', 'helicopter', 'ibis', 'inline_skate', 'joshua_tree', 'kangaroo', 'ketch', 'lamp', 'laptop', 'llama', 'lobster', 'lotus', 'mandolin', 'mayfly', 'menorah', 'metronome', 'minaret', 'nautilus', 'octopus', 'okapi', 'pagoda', 'panda', 'pigeon', 'pizza', 'platypus', 'pyramid', 'revolver', 'rhino', 'rooster', 'saxophone', 'schooner', 'scissors', 'scorpion', 'sea_horse', 'snoopy', 'soccer_ball', 'stapler', 'starfish', 'stegosaurus', 'stop_sign', 'strawberry', 'sunflower', 'tick', 'trilobite', 'umbrella', 'watch', 'water_lilly', 'wheelchair', 'wild_cat', 'windsor_chair', 'wrench', 'yin_yang', 'cougar_body']
     
     cat_count_matrix=get_act_category_count(best_dict,fr)
-
+    print('Plotting category histograms')
     for idx,cat in enumerate(catgs):
         fig=plt.figure()
         freq=cat_count_matrix[:,idx]
+        max_freq=np.max(freq)
         x_axis=range(0,len(freq))
         plt.bar(x_axis,freq)
         size=fr.get_category_size(cat)
@@ -167,6 +168,29 @@ def generate_patches_neuron(fr,best_dict,neuron_idx, input_size=576, n_imgs=None
         imsave(patch_name,patch)
     return
 
+def get_best_neurons(fr,cat_name,best_dict,n=1):
+    size=fr.get_category_size(cat_name)
+    cat_count_matrix=get_act_category_count(best_dict,fr)
+    cats=fr.getCategories()
+    cat_idx=cats.index(cat_name)
+    counts=cat_count_matrix[:,cat_idx]
+    best_idx=np.argsort(-1*counts)
+    return best_idx[:n]
+
+def get_neuron_statistics(neuron_idx,best_dict,fr,ntop=1000,n_cat=3):
+    print('Among top '+str(ntop))
+    img=best_dict[IMG][:,:ntop]
+    best_dictn=dict()
+    best_dictn[IMG]=img
+    cat_count_matrix=get_act_category_count(best_dictn,fr)
+    cats=fr.getCategories()
+    cat_idx=np.argsort(-1*cat_count_matrix[neuron_idx,:])
+    cat_idx=cat_idx[:n_cat]
+    counts=cat_count_matrix[neuron_idx,:]
+    for cat_id in cat_idx:
+        print('Category = '+cats[cat_id]+' size = ',fr.get_category_size(cats[cat_id]),' count = ',counts[cat_id])
+    return
+
 
 def main():
     dict_file='dump/best_max_dict.p'
@@ -178,9 +202,25 @@ def main():
     with open(fr_file,'rb') as f:
         fr=p.load(f)
     # plot_category_histograms(best_dict,fr)
-    print('Generating patches')
-    generate_patches_neuron(fr,best_dict,10,n_imgs=10)
+    # print('Generating patches')
+    # generate_patches_neuron(fr,best_dict,10,n_imgs=10)
     
+    cat_name='car_side'
+    neurons=get_best_neurons(fr,cat_name,best_dict,5)
+    cat_count_matrix=get_act_category_count(best_dict,fr)
+    cats=fr.getCategories()
+    cat_idx=cats.index(cat_name)
+    print('Neurons for '+cat_name+' are = ',neurons)
+    print('Their counts are =',cat_count_matrix[neurons,cat_idx])
+    for neuron in neurons:
+        print ('Neuron ',neuron)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=1000,n_cat=3)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=500,n_cat=3)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=400,n_cat=3)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=300,n_cat=3)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=200,n_cat=3)
+        get_neuron_statistics(neuron,best_dict,fr,ntop=100,n_cat=3)
+        print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
 
 if __name__=='__main__':
     main()
