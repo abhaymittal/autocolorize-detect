@@ -24,6 +24,11 @@ IMG='img'
 ROW_IDX='row_idx'
 COL_IDX='col_idx'
 
+'''
+This file contains the code for running the network and only the best activation
+per image per neuron is considered.
+'''
+
 def configure_logging(log_level=logging.INFO):
     '''
     Method to configure the logger

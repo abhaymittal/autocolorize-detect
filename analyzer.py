@@ -21,6 +21,8 @@ IMG='img'
 ROW_IDX='row_idx'
 COL_IDX='col_idx'
 
+# This file contains functions to analyze the hidden units
+
 
 def get_img_categories(best_dict,fr):
     '''
@@ -62,7 +64,16 @@ def get_act_category_count(best_dict,fr):
 
 def get_img_patch(img, row, col):
     '''
-    
+    Method to get the patch which is in the receptive field of the
+    fc7 neuron at row,col 
+
+    Args:
+    img: The original image
+    row: the row idx of the neuron
+    col: The col idx of the neuron
+
+    Return:
+    img: image patch in the receptive field of the neuron
     '''
 
     # receptive field arithmetic : https://medium.com/@nikasa1889/a-guide-to-receptive-field-arithmetic-for-convolutional-neural-networks-e0f514068807
@@ -120,21 +131,36 @@ def center_crop(img, size, value=0.0):
 
 
 
-def get_padded_image(grayscale,input_size):
+def get_padded_image(img,input_size):
+    '''
+    Method to get the padded image that is fed to the net
+    
+    Args:
+    img: The original image
+    input_size: The input size to the neural net, Integer value
+    '''
     min_side=float(input_size//2)
     max_side=input_size-12
-    shorter_side = np.min(grayscale.shape[:2])
-    longer_side = np.max(grayscale.shape[:2])
+    shorter_side = np.min(img.shape[:2])
+    longer_side = np.max(img.shape[:2])
     scale = min(min_side / shorter_side, 1)
     if longer_side * scale >= max_side:
         scale = max_side / longer_side
     if scale != 1:
-        grayscale = resize_by_factor(grayscale, scale)
+        img = resize_by_factor(img, scale)
 
-    grayscale = center_crop(grayscale, (input_size, input_size))
-    return grayscale
+    img = center_crop(img, (input_size, input_size))
+    return img
 
 def plot_category_histograms(best_dict,fr):
+    '''
+    Method to plot the frequency histograms for categories which show that for each hidden unit in the best_dict, how many
+    images of the category occured 
+    
+    Args:
+    best_dict: The best dictionary so far
+    fr: File reader instance
+    '''
     print(fr.getCategories())
     catgs=fr.getCategories()
     # The following are the categories
@@ -154,6 +180,16 @@ def plot_category_histograms(best_dict,fr):
         plt.close()
 
 def generate_patches_neuron(fr,best_dict,neuron_idx, input_size=576, n_imgs=None):
+    '''
+    Method to get the receptive field for all the images in the best_dict for a neuron. The patches are 
+    saved in patch/ directory
+    Args:
+    fr: File reader 
+    best_dict: The best activation dictionary
+    neuron_idx: The index of the hidden unit whose patches are to be generated
+    input_size: The neural net input size
+    n_imgs: The number of patches to generate
+    '''
     if n_imgs is None:
         n_imgs=best_dict[IMG].shape[1]
     img_ids=best_dict[IMG][neuron_idx,:n_imgs]
@@ -169,6 +205,15 @@ def generate_patches_neuron(fr,best_dict,neuron_idx, input_size=576, n_imgs=None
     return
 
 def get_best_neurons(fr,cat_name,best_dict,n=1):
+    '''
+    Method to get the best neurons for a category
+    
+    Args:
+    fr: File reader instance
+    cat_name: The category name
+    best_dict: best activation dictionary
+    n: The number of neurons needed
+    '''
     size=fr.get_category_size(cat_name)
     cat_count_matrix=get_act_category_count(best_dict,fr)
     cats=fr.getCategories()
@@ -178,6 +223,15 @@ def get_best_neurons(fr,cat_name,best_dict,n=1):
     return best_idx[:n]
 
 def get_neuron_statistics(neuron_idx,best_dict,fr,ntop=1000,n_cat=3):
+    '''
+    Method to print the top categories detected by a neuron
+    Args:
+    neuron_idx: The index of the neuron being considered
+    best_dict: the best activation dictionary
+    fr: File reader instance
+    ntop: The number of activations to consider
+    n_cat: Print details about top n_cat categories
+    '''
     print('Among top '+str(ntop))
     img=best_dict[IMG][:,:ntop]
     best_dictn=dict()
@@ -191,6 +245,40 @@ def get_neuron_statistics(neuron_idx,best_dict,fr,ntop=1000,n_cat=3):
         print('Category = '+cats[cat_id]+' size = ',fr.get_category_size(cats[cat_id]),' count = ',counts[cat_id])
     return
 
+def compute_precision_recall(cat_name, neurons,fr,best_dict):
+    '''
+    Method to compute the precision and recall for a set of hidden units
+    
+    Args:
+    cat_name: The category for which precision and recall are to be computed
+    neurons: A numpy array of hidden units
+    fr: File reader instance
+    best_dict: The best activations dictionary
+    
+    Return:
+    precision,recall
+    '''
+    num_samples=best_dict[IMG].shape[1]
+    print('Computing precision and recall for ',cat_name,' @',num_samples)
+    cats=fr.getCategories()
+    cat_size=np.minimum(fr.get_category_size(cat_name),num_samples)
+    cat_count_matrix=get_act_category_count(best_dict,fr)
+    precision=np.zeros(neurons.shape,dtype=np.float64)
+    recall=np.zeros_like(precision)
+    for i,neuron in enumerate(neurons):
+        count=cat_count_matrix[neuron,cats.index(cat_name)]
+        tp=count
+        
+        # False positive and false negative should be same here because we are taking num_samples best activations and the 
+        # images for cat_name that we missed were replaced by some other category images (FN)
+        fp=cat_size-count
+        fn=fp
+
+        precision[i]=float(tp)/(tp+fp)
+        recall[i]=float(tp)/(tp+fn)
+        print('Neuron',neuron,' detected ',count,' out of ',cat_size,'. Precision = ',precision[i])
+
+    return precision,recall
 
 def main():
     dict_file='dump/best_max_dict.p'
@@ -205,22 +293,39 @@ def main():
     # print('Generating patches')
     # generate_patches_neuron(fr,best_dict,10,n_imgs=10)
     
-    cat_name='car_side'
-    neurons=get_best_neurons(fr,cat_name,best_dict,5)
-    cat_count_matrix=get_act_category_count(best_dict,fr)
-    cats=fr.getCategories()
-    cat_idx=cats.index(cat_name)
-    print('Neurons for '+cat_name+' are = ',neurons)
-    print('Their counts are =',cat_count_matrix[neurons,cat_idx])
-    for neuron in neurons:
-        print ('Neuron ',neuron)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=1000,n_cat=3)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=500,n_cat=3)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=400,n_cat=3)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=300,n_cat=3)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=200,n_cat=3)
-        get_neuron_statistics(neuron,best_dict,fr,ntop=100,n_cat=3)
-        print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+    cat_name='Faces_easy'
+
+    # The following is the code to print statistics category wise, like the best neurons for category and the top categories 
+    # among those neurons
+    # neurons=get_best_neurons(fr,cat_name,best_dict,5)
+    # cat_count_matrix=get_act_category_count(best_dict,fr)
+    # cats=fr.getCategories()
+    # cat_idx=cats.index(cat_name)
+    # print('Neurons for '+cat_name+' are = ',neurons)
+    # print('Their counts are =',cat_count_matrix[neurons,cat_idx])
+    # for neuron in neurons:
+    #     print ('Neuron ',neuron)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=1000,n_cat=3)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=500,n_cat=3)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=400,n_cat=3)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=300,n_cat=3)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=200,n_cat=3)
+    #     get_neuron_statistics(neuron,best_dict,fr,ntop=100,n_cat=3)
+    #     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+
+    num_neurons=5
+    num_samples=400
+    best_dictn=dict()
+    best_dictn[IMG]=best_dict[IMG][:,:num_samples]
+    neurons=get_best_neurons(fr,cat_name,best_dictn,num_neurons)
+    compute_precision_recall(cat_name, neurons, fr,best_dictn)
+
+    num_neurons=5
+    num_samples=1000
+    best_dictn=dict()
+    best_dictn[IMG]=best_dict[IMG][:,:num_samples]
+    neurons=get_best_neurons(fr,cat_name,best_dictn,num_neurons)
+    compute_precision_recall(cat_name, neurons, fr,best_dictn)
 
 if __name__=='__main__':
     main()
