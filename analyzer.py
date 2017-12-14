@@ -15,7 +15,7 @@ import logging
 import numpy as np
 import caltech101.file_reader as fread
 from scipy.misc import imsave
-from skimage.transform import rescale
+from skimage.transform import rescale,resize
 
 ACT='act'
 SAMPLE_W='sample_width'
@@ -208,6 +208,10 @@ def generate_patches_neuron(fr,best_dict,neuron_idx, input_size=576, n_imgs=None
         imsave(patch_name,patch)
     return
 
+
+
+    
+
 def get_best_neurons(fr,cat_name,best_dict,n=1):
     '''
     Method to get the best neurons for a category
@@ -287,6 +291,36 @@ def compute_precision_recall(cat_name, neurons,fr,best_dict,verbose=True):
     return precision,recall
 
 
+def generate_top_patches_img(fr,best_dict,neuron_idx, n_cols=8, n_imgs=None, input_size=576):
+    if n_imgs is None:
+        n_imgs=best_dict[IMG].shape[1]
+    img_ids=best_dict[IMG][neuron_idx,:n_imgs]
+    recept_rows=best_dict[ROW_IDX][neuron_idx,:n_imgs]
+    recept_cols=best_dict[COL_IDX][neuron_idx,:n_imgs]
+    n_rows=int(np.ceil(n_imgs*1.0/n_cols))
+    img_idx=0
+    ind_img_size=(100,100)
+    output_img=np.zeros((n_rows*ind_img_size[0],n_cols*ind_img_size[1]))
+    break_flag=False
+    for r in np.arange(n_rows):
+        for c in np.arange(n_cols):
+            img=fr.get_image_by_id(img_ids[img_idx])
+            img=get_padded_image(img,input_size)
+            patch=get_img_patch(img, recept_rows[img_idx], recept_cols[img_idx])
+            patch=resize(patch,ind_img_size)
+            beg_row_idx=r*ind_img_size[0]
+            beg_col_idx=c*ind_img_size[1]
+            if(len(patch.shape)==3):
+                patch=patch[...,:3].mean(-1)
+            output_img[beg_row_idx:beg_row_idx+ind_img_size[0],beg_col_idx:beg_col_idx+ind_img_size[1]]=patch
+            img_idx+=1
+            if img_idx>=n_imgs:
+                break_flag=True
+                break
+        if break_flag:
+            break
+    return output_img
+
     
 
 def main():
@@ -325,23 +359,24 @@ def main():
     # plot_category_histograms(best_dict,fr)
 
 
-    cat_name='airplanes'
+    cat_name='Faces_easy'
     num_neurons=5
     num_samples=1000
     best_dictn=dict()
     best_dictn[IMG]=best_dict[IMG][:,:num_samples]
     neurons=get_best_neurons(fr,cat_name,best_dictn,num_neurons)
-
-    precision=np.zeros([num_neurons,11])
-    n_samples=[1,10,50,100,200,300,400,500,600,700,800]
-    # n_samples=[1,10,50,100,200,300,400,500,800]
-    for i,num_samples in enumerate(n_samples):
-        best_dictn=dict()
-        best_dictn[IMG]=best_dict[IMG][:,:num_samples]
-        pr,_=compute_precision_recall(cat_name, neurons, fr,best_dictn,verbose=False)
-        precision[:,i]=pr
-    neuron_names=['unit '+str(x) for x in neurons]
-    plot.group_line_plot(n_samples,precision,neuron_names,'Number of top activations','Precision','Precision vs number of top activations for airplanes','prec_air.png')
+    act_img=generate_top_patches_img(fr,best_dict,neurons[0], n_cols=20, n_imgs=500)
+    imsave('act.png',act_img)
+    # precision=np.zeros([num_neurons,11])
+    # n_samples=[1,10,50,100,200,300,400,500,600,700,800]
+    # # n_samples=[1,10,50,100,200,300,400,500,800]
+    # for i,num_samples in enumerate(n_samples):
+    #     best_dictn=dict()
+    #     best_dictn[IMG]=best_dict[IMG][:,:num_samples]
+    #     pr,_=compute_precision_recall(cat_name, neurons, fr,best_dictn,verbose=False)
+    #     precision[:,i]=pr
+    # neuron_names=['unit '+str(x) for x in neurons]
+    # plot.group_line_plot(n_samples,precision,neuron_names,'Number of top activations','Precision','Precision vs number of top activations for airplanes','prec_air.png')
 
 
 if __name__=='__main__':
