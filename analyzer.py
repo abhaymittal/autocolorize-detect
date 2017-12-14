@@ -1,8 +1,10 @@
 from __future__ import print_function
 import matplotlib
 matplotlib.use('agg')
+matplotlib.rcParams.update({'font.size': 18})
 import matplotlib.pyplot as plt
 import os
+import plot 
 try:
     import cPickle as p
 except:
@@ -169,13 +171,15 @@ def plot_category_histograms(best_dict,fr):
     cat_count_matrix=get_act_category_count(best_dict,fr)
     print('Plotting category histograms')
     for idx,cat in enumerate(catgs):
-        fig=plt.figure()
+        fig=plt.figure(figsize=(8,6))
         freq=cat_count_matrix[:,idx]
         max_freq=np.max(freq)
         x_axis=range(0,len(freq))
         plt.bar(x_axis,freq)
         size=fr.get_category_size(cat)
-        plt.title(cat+' '+str(size))
+        plt.title('Histogram for '+cat+' with '+str(size)+' images')
+        plt.xlabel('Hidden unit index')
+        plt.ylabel('Count of '+cat+' in top 1000')
         plt.savefig('fig/'+cat+'.png')
         plt.close()
 
@@ -245,7 +249,7 @@ def get_neuron_statistics(neuron_idx,best_dict,fr,ntop=1000,n_cat=3):
         print('Category = '+cats[cat_id]+' size = ',fr.get_category_size(cats[cat_id]),' count = ',counts[cat_id])
     return
 
-def compute_precision_recall(cat_name, neurons,fr,best_dict):
+def compute_precision_recall(cat_name, neurons,fr,best_dict,verbose=True):
     '''
     Method to compute the precision and recall for a set of hidden units
     
@@ -259,7 +263,8 @@ def compute_precision_recall(cat_name, neurons,fr,best_dict):
     precision,recall
     '''
     num_samples=best_dict[IMG].shape[1]
-    print('Computing precision and recall for ',cat_name,' @',num_samples)
+    if verbose:
+        print('Computing precision and recall for ',cat_name,' @',num_samples)
     cats=fr.getCategories()
     cat_size=np.minimum(fr.get_category_size(cat_name),num_samples)
     cat_count_matrix=get_act_category_count(best_dict,fr)
@@ -276,9 +281,13 @@ def compute_precision_recall(cat_name, neurons,fr,best_dict):
 
         precision[i]=float(tp)/(tp+fp)
         recall[i]=float(tp)/(tp+fn)
-        print('Neuron',neuron,' detected ',count,' out of ',cat_size,'. Precision = ',precision[i])
+        if verbose:
+            print('Neuron',neuron,' detected ',count,' out of ',cat_size,'. Precision = ',precision[i])
 
     return precision,recall
+
+
+    
 
 def main():
     dict_file='dump/best_max_dict.p'
@@ -313,19 +322,27 @@ def main():
     #     get_neuron_statistics(neuron,best_dict,fr,ntop=100,n_cat=3)
     #     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
 
-    num_neurons=5
-    num_samples=400
-    best_dictn=dict()
-    best_dictn[IMG]=best_dict[IMG][:,:num_samples]
-    neurons=get_best_neurons(fr,cat_name,best_dictn,num_neurons)
-    compute_precision_recall(cat_name, neurons, fr,best_dictn)
+    # plot_category_histograms(best_dict,fr)
 
+
+    cat_name='airplanes'
     num_neurons=5
     num_samples=1000
     best_dictn=dict()
     best_dictn[IMG]=best_dict[IMG][:,:num_samples]
     neurons=get_best_neurons(fr,cat_name,best_dictn,num_neurons)
-    compute_precision_recall(cat_name, neurons, fr,best_dictn)
+
+    precision=np.zeros([num_neurons,11])
+    n_samples=[1,10,50,100,200,300,400,500,600,700,800]
+    # n_samples=[1,10,50,100,200,300,400,500,800]
+    for i,num_samples in enumerate(n_samples):
+        best_dictn=dict()
+        best_dictn[IMG]=best_dict[IMG][:,:num_samples]
+        pr,_=compute_precision_recall(cat_name, neurons, fr,best_dictn,verbose=False)
+        precision[:,i]=pr
+    neuron_names=['unit '+str(x) for x in neurons]
+    plot.group_line_plot(n_samples,precision,neuron_names,'Number of top activations','Precision','Precision vs number of top activations for airplanes','prec_air.png')
+
 
 if __name__=='__main__':
     main()
